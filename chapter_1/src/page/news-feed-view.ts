@@ -1,10 +1,9 @@
 import View from '../core/view';
 import { NewsFeedApi } from '../core/api';
-import { NewsFeed, NewsStore } from '../types';
-import { NEWS_URL } from '../config'; 
+import { NewsStore, NewsFeed } from '../types';
+import { NEWS_URL } from '../config';
 
-
-const template: string = `
+const template = `
 <div class="bg-gray-600 min-h-screen">
   <div class="bg-white text-xl">
     <div class="mx-auto px-4">
@@ -29,23 +28,22 @@ const template: string = `
 </div>
 `;
 
-
 export default class NewsFeedView extends View {
   private api: NewsFeedApi;
   private store: NewsStore;
-  
+
   constructor(containerId: string, store: NewsStore) {
     super(containerId, template);
 
     this.store = store;
     this.api = new NewsFeedApi(NEWS_URL);
   }
-  
+
   render = (page: string = '1'): void => {
-    this.store.currentPage = Number(location.hash.substring(7) || 1);
+    this.store.currentPage = Number(page);
 
     if (!this.store.hasFeeds) {
-      this.api.getData((feeds: NewsFeed[]) =>{
+      this.api.getDataWithPromise((feeds: NewsFeed[]) => {
         this.store.setFeeds(feeds);
         this.renderView();
       });
@@ -53,7 +51,6 @@ export default class NewsFeedView extends View {
 
     this.renderView();
   }
-
 
   renderView = () => {
     for(let i = (this.store.currentPage - 1) * 10; i < this.store.currentPage * 10; i++) {
@@ -78,7 +75,7 @@ export default class NewsFeedView extends View {
           </div>
         </div>    
       `);
-    }
+    }  
 
     this.setTemplateData('news_feed', this.getHtml());
     this.setTemplateData('prev_page', String(this.store.prevPage));

@@ -136,24 +136,34 @@ var Router = /*#__PURE__*/function () {
   function Router() {
     _classCallCheck(this, Router);
     window.addEventListener('hashchange', this.route.bind(this));
-    this.routeTable = [];
+    this.isStart = false;
     this.defaultRoute = null;
+    this.routeTable = [];
   }
   return _createClass(Router, [{
     key: "setDefaultPage",
     value: function setDefaultPage(page) {
+      var params = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
       this.defaultRoute = {
         path: '',
-        page: page
+        page: page,
+        params: params
       };
     }
   }, {
     key: "addRoutePath",
     value: function addRoutePath(path, page) {
+      var params = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
       this.routeTable.push({
         path: path,
-        page: page
+        page: page,
+        params: params
       });
+      if (!this.isStart) {
+        this.isStart = true;
+        // Execute next tick
+        setTimeout(this.route.bind(this), 0);
+      }
     }
   }, {
     key: "route",
@@ -161,6 +171,7 @@ var Router = /*#__PURE__*/function () {
       var routePath = location.hash;
       if (routePath === '' && this.defaultRoute) {
         this.defaultRoute.page.render();
+        return;
       }
       var _iterator = _createForOfIteratorHelper(this.routeTable),
         _step;
@@ -168,8 +179,15 @@ var Router = /*#__PURE__*/function () {
         for (_iterator.s(); !(_step = _iterator.n()).done;) {
           var routeInfo = _step.value;
           if (routePath.indexOf(routeInfo.path) >= 0) {
-            routeInfo.page.render();
-            break;
+            if (routeInfo.params) {
+              var parseParams = routePath.match(routeInfo.params);
+              if (parseParams) {
+                routeInfo.page.render.apply(null, [parseParams[1]]);
+              }
+            } else {
+              routeInfo.page.render();
+            }
+            return;
           }
         }
       } catch (err) {
@@ -196,11 +214,11 @@ Object.defineProperty(exports, "__esModule", {
 var View = /*#__PURE__*/function () {
   function View(containerId, template) {
     _classCallCheck(this, View);
-    var containerElement = document.getElementById(containerId);
-    if (!containerElement) {
+    var conatinerElement = document.getElementById(containerId);
+    if (!conatinerElement) {
       throw '최상위 컨테이너가 없어 UI를 진행하지 못합니다.';
     }
-    this.container = containerElement;
+    this.container = conatinerElement;
     this.template = template;
     this.renderTemplate = template;
     this.htmlList = [];
@@ -255,26 +273,35 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.NewsDetailApi = exports.NewsFeedApi = exports.Api = void 0;
+exports.NewsDetailApi = exports.NewsFeedApi = void 0;
 var Api = /*#__PURE__*/function () {
   function Api(url) {
     _classCallCheck(this, Api);
-    this.ajax = new XMLHttpRequest();
+    this.xhr = new XMLHttpRequest();
     this.url = url;
   }
   return _createClass(Api, [{
-    key: "getRequest",
-    value: function getRequest(cb) {
+    key: "getRequestWithXHR",
+    value: function getRequestWithXHR(cb) {
       var _this = this;
-      this.ajax.open('GET', this.url);
-      this.ajax.addEventListener('load', function () {
-        cb(JSON.parse(_this.ajax.response));
+      this.xhr.open('GET', this.url);
+      this.xhr.addEventListener('load', function () {
+        cb(JSON.parse(_this.xhr.response));
       });
-      this.ajax.send();
+      this.xhr.send();
+    }
+  }, {
+    key: "getRequestWithPromise",
+    value: function getRequestWithPromise(cb) {
+      fetch(this.url).then(function (response) {
+        return response.json();
+      }).then(cb).catch(function () {
+        console.error('데이타를 불러오지 못했습니다.');
+      });
     }
   }]);
 }();
-exports.Api = Api;
+exports.default = Api;
 var NewsFeedApi = /*#__PURE__*/function (_Api) {
   function NewsFeedApi(url) {
     _classCallCheck(this, NewsFeedApi);
@@ -282,9 +309,14 @@ var NewsFeedApi = /*#__PURE__*/function (_Api) {
   }
   _inherits(NewsFeedApi, _Api);
   return _createClass(NewsFeedApi, [{
-    key: "getData",
-    value: function getData(cb) {
-      return this.getRequest(cb);
+    key: "getDataWithXHR",
+    value: function getDataWithXHR(cb) {
+      return this.getRequestWithXHR(cb);
+    }
+  }, {
+    key: "getDataWithPromise",
+    value: function getDataWithPromise(cb) {
+      return this.getRequestWithPromise(cb);
     }
   }]);
 }(Api);
@@ -296,9 +328,14 @@ var NewsDetailApi = /*#__PURE__*/function (_Api2) {
   }
   _inherits(NewsDetailApi, _Api2);
   return _createClass(NewsDetailApi, [{
-    key: "getData",
-    value: function getData(cb) {
-      return this.getRequest(cb);
+    key: "getDataWithXHR",
+    value: function getDataWithXHR(cb) {
+      return this.getRequestWithXHR(cb);
+    }
+  }, {
+    key: "getDataWithPromise",
+    value: function getDataWithPromise(cb) {
+      return this.getRequestWithPromise(cb);
     }
   }]);
 }(Api);
@@ -339,7 +376,7 @@ Object.defineProperty(exports, "__esModule", {
 var view_1 = __importDefault(require("../core/view"));
 var api_1 = require("../core/api");
 var config_1 = require("../config");
-var template = "\n<div class=\"bg-gray-600 min-h-screen pb-8\">\n  <div class=\"bg-white text-xl\">\n    <div class=\"mx-auto px-4\">\n      <div class=\"flex justify-between items-center py-6\">\n        <div class=\"flex justify-start\">\n          <h1 class=\"font-extrabold\">Hacker News</h1>\n        </div>\n        <div class=\"items-center justify-end\">\n          <a href=\"#/page/{{__currentPage__}}\" class=\"text-gray-500\">\n            <i class=\"fa fa-times\"></i>\n          </a>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <div class=\"h-full border rounded-xl bg-white m-6 p-4 \">\n    <h2>{{__title__}}</h2>\n    <div class=\"text-gray-400 h-20\">\n      {{__content__}}\n    </div>\n\n    {{__comments__}}\n\n  </div>\n</div>\n";
+var template = "\n<div class=\"bg-gray-600 min-h-screen pb-8\">\n  <div class=\"bg-white text-xl\">\n    <div class=\"mx-auto px-4\">\n      <div class=\"flex justify-between items-center py-6\">\n        <div class=\"flex justify-start\">\n          <h1 class=\"font-extrabold\">Hacker News</h1>\n        </div>\n        <div class=\"items-center justify-end\">\n          <a href=\"#/page/{{__currentPage__}}\" class=\"text-gray-500\">\n            <i class=\"fa fa-times\"></i>\n          </a>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <div class=\"h-full border rounded-xl bg-white m-6 p-4 \">\n    <h2>{{__title__}}</h2>\n    <div class=\"text-gray-400 h-20\">\n      {{__content__}}\n    </div>\n    {{__comments__}}\n  </div>\n</div>\n";
 var NewsDetailView = /*#__PURE__*/function (_view_1$default) {
   function NewsDetailView(containerId, store) {
     var _this;
@@ -413,9 +450,9 @@ var NewsFeedView = /*#__PURE__*/function (_view_1$default) {
     _this = _callSuper(this, NewsFeedView, [containerId, template]);
     _this.render = function () {
       var page = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '1';
-      _this.store.currentPage = Number(location.hash.substring(7) || 1);
+      _this.store.currentPage = Number(page);
       if (!_this.store.hasFeeds) {
-        _this.api.getData(function (feeds) {
+        _this.api.getDataWithPromise(function (feeds) {
           _this.store.setFeeds(feeds);
           _this.renderView();
         });
@@ -485,9 +522,18 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.Store = void 0;
 var Store = /*#__PURE__*/function () {
   function Store() {
+    var _this = this;
     _classCallCheck(this, Store);
+    this.setFeeds = function (feeds) {
+      _this.feeds = feeds.map(function (feed) {
+        return Object.assign(Object.assign({}, feed), {
+          read: false
+        });
+      });
+    };
     this.feeds = [];
     this._currentPage = 1;
   }
@@ -520,23 +566,14 @@ var Store = /*#__PURE__*/function () {
       return this.feeds.length > 0;
     }
   }, {
-    key: "getAllFeeds",
-    value: function getAllFeeds() {
-      return this.feeds;
-    }
-  }, {
     key: "getFeed",
     value: function getFeed(position) {
       return this.feeds[position];
     }
   }, {
-    key: "setFeeds",
-    value: function setFeeds(feeds) {
-      this.feeds = feeds.map(function (feed) {
-        return Object.assign(Object.assign({}, feed), {
-          read: false
-        });
-      });
+    key: "getAllFeeds",
+    value: function getAllFeeds() {
+      return this.feeds;
     }
   }, {
     key: "makeRead",
@@ -550,7 +587,7 @@ var Store = /*#__PURE__*/function () {
     }
   }]);
 }();
-exports.default = Store;
+exports.Store = Store;
 },{}],"src/app.ts":[function(require,module,exports) {
 "use strict";
 
@@ -564,15 +601,14 @@ Object.defineProperty(exports, "__esModule", {
 });
 var router_1 = __importDefault(require("./core/router"));
 var page_1 = require("./page");
-var store_1 = __importDefault(require("./store"));
-var store = new store_1.default();
+var store_1 = require("./store");
+var store = new store_1.Store();
 var router = new router_1.default();
 var newsFeedView = new page_1.NewsFeedView('root', store);
 var newsDetailView = new page_1.NewsDetailView('root', store);
 router.setDefaultPage(newsFeedView);
-router.addRoutePath('/page/', newsFeedView);
-router.addRoutePath('/show/', newsDetailView);
-router.route();
+router.addRoutePath('/page/', newsFeedView, /page\/(\d+)/);
+router.addRoutePath('/show/', newsDetailView, /show\/(\d+)/);
 },{"./core/router":"src/core/router.ts","./page":"src/page/index.ts","./store":"src/store.ts"}],"../../../../AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
@@ -598,7 +634,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58001" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55419" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
